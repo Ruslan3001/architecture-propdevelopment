@@ -1,0 +1,85 @@
+@startuml PropDevelopment_C4_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+title Диаграмма контейнеров (C4 Level 2) — PropDevelopment (Интеграция "Умный дом" и ИБ)
+
+System_Boundary(users, "Пользователи") {
+    Person(client, "Клиент", "Покупатель недвижимости")
+    Person(owner, "Собственник", "Владелец недвижимости")
+}
+
+System_Boundary(staff, "Сотрудники") {
+    Person_Ext(manager, "Менеджер", "Администрирует сделки")
+    Person_Ext(accountant, "Бухгалтер", "Фин. учет")
+    Person_Ext(bi_analyst, "Аналитик BI", "Аналитика")
+}
+
+System_Ext(gov, "Госорганы (СМЭВ)", "Регистрация сделок")
+System_Ext(payment, "Платёжная система", "Онлайн-платежи")
+System_Ext(utilities, "Поставщик ресурсов ЖКХ", "Внешние УК")
+System_Ext(smarthome, "Платформа «Умный дом»", "Внешняя IoT система партнера")
+
+System_Boundary(propdev, "Система PropDevelopment") {
+
+    Container(waf, "WAF / Anti-DDoS", "Hardware/Appliance", "Защита периметра, фильтрация L7, защита от DDoS")
+    Container(api_gw, "API Gateway", "Kong / Nginx", "Единая точка контроля B2B API. Rate-limit, авторизация, защита от BOLA/IDOR")
+    Container(siem, "SIEM Система", "ELK / Splunk", "Централизованный сбор логов безопасности, мониторинг аномалий")
+
+    System_Boundary(auth_group, "Управление доступом (IdM)") {
+        Container(keycloak, "auth-service-1", "Keycloak", "Аутентификация клиентов и собственников (MFA)")
+        ContainerDb(keycloak_db, "auth-db-1", "PostgreSQL", "БД аутентификации")
+        Container(ad, "Active Directory", "MS AD", "Единый каталог сотрудников")
+    }
+
+    System_Boundary(sales_group, "Группа сервисов для продаж") {
+        Container(sales_app, "Витрина продаж", "React", "Подбор и бронирование")
+        Container(client_crm, "client-crm-app", "Spring Boot", "Управление клиентскими данными")
+        Container(client_mart, "client-mart-app", "Spring Boot", "Проведение онлайн-сделок")
+        ContainerDb(client_mart_db, "client-mart-db", "PostgreSQL", "БД сделок (TDE Шифрование)")
+    }
+
+    System_Boundary(tenant_group, "Группа сервисов ЖКУ и Умный дом") {
+        Container(owner_app, "Витрина сервисов для собственников", "Mobile iOS/Android", "Мобильное приложение жильца")
+        Container(tenant_core, "tenant-core-app", "Spring Boot", "Сервисы ЖКУ")
+        ContainerDb(tenant_core_db, "tenant-core-db", "PostgreSQL", "БД услуг ЖКХ")
+        Container(tenant_crm, "CRM", "Spring Boot", "CRM собственников")
+
+        ' === НОВЫЕ КОНТЕЙНЕРЫ УМНОГО ДОМА ===
+        Container(smart_home_app, "smart-home-app", "Spring Boot", "Интеграция с IoT. Анонимизация данных (без передачи ПДн), строгий ABAC-контроль")
+        ContainerDb(smart_home_db, "smart-home-db", "PostgreSQL", "Маппинг ID устройств, биометрия, ключи (TDE Шифрование)")
+    }
+
+    System_Boundary(data_group, "Дата") {
+        Container(greenplum, "Хранилище данных", "Greenplum", "Единое хранилище (DLP контроль)")
+        Container(s3_dwh, "DWH Хранилище", "S3", "Облачное хранилище бэкапов (IAM политики)")
+    }
+}
+
+' Взаимодействие с ИБ компонентами
+Rel(client, waf, "Использует", "HTTPS")
+Rel(owner, waf, "Использует", "HTTPS")
+Rel(waf, sales_app, "Трафик", "HTTPS")
+Rel(waf, owner_app, "Трафик", "HTTPS")
+Rel(waf, api_gw, "Входящие внешние запросы (webhook)")
+Rel_U(api_gw, siem, "Аудит логов", "Syslog")
+Rel_U(keycloak, siem, "Логи доступа", "Syslog")
+Rel_U(smart_home_app, siem, "Инциденты ИБ", "Syslog")
+
+' Логика авторизации
+Rel(owner_app, keycloak, "Аутентификация", "REST / OIDC")
+Rel(keycloak, keycloak_db, "Чтение/Запись", "JDBC")
+
+' Маршрутизация Умного дома (Строго через API GW и микросервис-адаптер)
+Rel(owner_app, api_gw, "Управление домофоном/шлагбаумом", "REST / TLS")
+Rel(api_gw, smart_home_app, "Внутренний вызов", "REST")
+Rel(smart_home_app, smart_home_db, "Чтение/Запись", "JDBC")
+Rel(smart_home_app, tenant_crm, "Проверка профиля (без извлечения ПДн)", "REST")
+Rel(smart_home_app, api_gw, "Исходящие IoT команды", "REST")
+
+' Внешние защищенные интеграции
+Rel(api_gw, smarthome, "Синхронизация биометрии, открытие (Анонимизировано)", "REST / mTLS, OAuth 2.0")
+Rel(api_gw, utilities, "Оплата ЖКУ (Без избыточных ПДн)", "REST / TLS 1.2+")
+Rel(client_mart, gov, "Регистрация сделок", "SOAP / ГОСТ-Шифрование")
+
+@enduml
