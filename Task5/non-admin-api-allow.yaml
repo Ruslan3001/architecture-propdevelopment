@@ -1,0 +1,148 @@
+---
+# === ПУНКТЫ 1 и 2: Декларативное развертывание 4 сервисов и назначение меток ===
+
+# 1. front-end
+apiVersion: v1
+kind: Pod
+metadata:
+  name: front-end-app
+  labels:
+    role: front-end
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-end-app
+spec:
+  selector:
+    role: front-end
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# 2. back-end-api
+apiVersion: v1
+kind: Pod
+metadata:
+  name: back-end-api-app
+  labels:
+    role: back-end-api
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: back-end-api-app
+spec:
+  selector:
+    role: back-end-api
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# 3. admin-front-end
+apiVersion: v1
+kind: Pod
+metadata:
+  name: admin-front-end-app
+  labels:
+    role: admin-front-end
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-front-end-app
+spec:
+  selector:
+    role: admin-front-end
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# 4. admin-back-end-api
+apiVersion: v1
+kind: Pod
+metadata:
+  name: admin-back-end-api-app
+  labels:
+    role: admin-back-end-api
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    ports:
+    - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-back-end-api-app
+spec:
+  selector:
+    role: admin-back-end-api
+  ports:
+  - port: 80
+    targetPort: 80
+---
+# === ПУНКТ 3: Сетевые политики (NetworkPolicies) ===
+
+# 1. Изолированный контур для публичных сервисов (в обе стороны)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: public-enclave-allow
+  namespace: default
+spec:
+  podSelector:
+    matchExpressions:
+      - key: role
+        operator: In
+        values: ["front-end", "back-end-api"]
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchExpressions:
+          - key: role
+            operator: In
+            values: ["front-end", "back-end-api"]
+---
+# 2. Изолированный контур для административных сервисов (в обе стороны)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: admin-enclave-allow
+  namespace: default
+spec:
+  podSelector:
+    matchExpressions:
+      - key: role
+        operator: In
+        values: ["admin-front-end", "admin-back-end-api"]
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchExpressions:
+          - key: role
+            operator: In
+            values: ["admin-front-end", "admin-back-end-api"]
