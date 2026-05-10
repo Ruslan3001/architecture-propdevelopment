@@ -1,0 +1,48 @@
+@startuml SmartHome_C4_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Диаграмма контекста (C4 Level 1) системы PropDevelopment с сервисами «Умный дом»
+
+System_Boundary(users, "Пользователи системы") {
+    Person(client, "Клиент", "Потенциальный покупатель недвижимости")
+    Person(owner, "Собственник", "Владелец недвижимости, использует мобильное приложение")
+}
+
+System_Boundary(internal_staff, "Сотрудники компании") {
+    Person_Ext(manager, "Менеджер", "Администрирует онлайн-сделки и работает с клиентами")
+    Person_Ext(accountant, "Бухгалтер", "Ведет бухгалтерский учет")
+    Person_Ext(bi_analyst, "Аналитик BI", "Формирует отчетность и анализирует данные")
+}
+
+System(propdev, "PropDevelopment", "Единая платформа застройщика. Сервисы продаж, ЖКУ, финансов и хранения данных")
+
+System_Ext(gov, "Государственные регистрационные органы", "СМЭВ, отвечает за регистрацию сделок с недвижимостью")
+System_Ext(payment, "Платёжная система", "Провайдер онлайн-платежей")
+System_Ext(utilities, "Поставщик ресурсов ЖКХ", "Системы внешних управляющих компаний")
+
+System_Boundary(smart_home, "Инфраструктура партнера") {
+    System_Ext(smarthome_platform, "Платформа «Умный дом»", "Облачная система партнера для управления IoT-устройствами")
+    System_Ext(intercom, "Интеллектуальный домофон", "Устройство с камерой. Распознаёт биометрию лиц")
+    System_Ext(barrier, "Интеллектуальный шлагбаум", "Устройство. Автоматически распознаёт номера авто")
+}
+
+Rel(client, propdev, "Подбирает и бронирует жилье, проводит сделки")
+Rel(owner, propdev, "Оплачивает ЖКУ, управляет умным домом")
+Rel(manager, propdev, "Управляет данными")
+Rel(accountant, propdev, "Управляет финансами")
+Rel(bi_analyst, propdev, "Запрашивает аналитику")
+
+Rel(propdev, gov, "Обмен данными для регистрации сделок", "SOAP / СМЭВ")
+Rel(propdev, payment, "Проведение транзакций", "REST API")
+Rel(propdev, utilities, "Получение данных по ЖКУ", "REST API")
+
+Rel(propdev, smarthome_platform, "Передает доступы, биометрию, номера авто", "REST API / TLS 1.2+")
+Rel(smarthome_platform, intercom, "Управляет устройством, принимает видеопоток")
+Rel(smarthome_platform, barrier, "Управляет шлагбаумом, получает события")
+
+Rel(owner, intercom, "Открывает дверь лицом", "Биометрия / Физически")
+Rel(owner, barrier, "Открывает шлагбаум авто", "Номер ТС / Физически")
+
+@enduml
